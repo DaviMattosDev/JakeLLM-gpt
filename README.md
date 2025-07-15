@@ -104,8 +104,6 @@ pip install -r requirements.txt
 
 ## 🖼️ Homenagem ao Jake
 
-<img src="https://github.com/user-attachments/assets/71c0f80e-3b7d-46c0-a50c-7482242caaf5" width="300px"/>
-
 O projeto leva o nome **JakeLLM** em homenagem ao meu cachorro Jake, que sempre esteve ao meu lado nos momentos mais difíceis. 🐾
 
 ---
