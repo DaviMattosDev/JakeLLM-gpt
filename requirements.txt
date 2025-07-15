@@ -1,0 +1,7 @@
+torch
+tokenizers
+transformers
+numpy
+pillow
+datasets
+tqdm
