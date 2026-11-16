@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>JakeLLM — Laboratório</title>
+  <style>
+    :root { font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; color:#f4f3f1; background:#101217 }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 50% -20%,#303a46 0%,#101217 60%); }
+    .shell { max-width:840px; margin:auto; min-height:100vh; display:flex; flex-direction:column; padding:24px 16px }
+    header { display:flex; justify-content:space-between; align-items:center; padding:14px 4px 20px; border-bottom:1px solid #323640; gap:16px }
+    .brand { display:flex; align-items:center; gap:12px }
+    .mark { display:grid; place-items:center; width:45px;height:45px; border-radius:14px; background:#342e23; font-size:25px }
+    h1 { margin:0; font-size:22px; letter-spacing:-.6px }
+    small { color:#aeb4bc }
+    .state { display:flex; align-items:center; gap:8px; color:#bfc7c8; font-size:12px }
+    .dot { width:8px; height:8px; border-radius:50%; background:#868e96 }
+    .dot.ready { background:#6ddd9a }
+    .dot.error { background:#ff8e83 }
+    main { display:flex; flex:1; flex-direction:column; gap:18px; padding:24px 3px; overflow-wrap:anywhere }
+    .intro { align-self:center; max-width:470px; text-align:center; padding:70px 16px; color:#bbc0c9; line-height:1.55 }
+    .intro strong { color:#f4f3f1; display:block; font-size:23px; margin-bottom:8px }
+    .msg { width:fit-content; max-width:min(85%,660px); white-space:pre-wrap; line-height:1.6; padding:14px 18px; border-radius:18px; }
+    .user { align-self:flex-end; background:#304d45; color:#f1faf5; border-bottom-right-radius:5px }
+    .bot { align-self:flex-start; background:#242933; color:#e8eaf0; border-bottom-left-radius:5px }
+    form { padding:14px; border:1px solid #454b55; background:#20242b; border-radius:18px; display:flex; gap:12px; align-items:flex-end }
+    textarea { flex:1; min-width:0; resize:vertical; max-height:180px; font:inherit; border:0; background:transparent; color:inherit; outline:none; padding:10px; min-height:44px }
+    button { border:0; border-radius:11px; background:#e9bd70; color:#252116; padding:13px 18px; font:inherit; font-weight:700; cursor:pointer }
+    button:disabled { opacity:.5; cursor:progress }
+    footer { padding:10px 3px; text-align:center; color:#959da6; font-size:12px; line-height:1.5 }
+    @media(max-width:580px) { header{align-items:flex-start} .shell{padding:12px} .msg{max-width:95%} .state{margin-top:10px} }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand"><div class="mark" aria-hidden="true">🐶</div><div><h1>JakeLLM</h1><small>Laboratório de IA em português</small></div></div>
+    <div class="state"><span id="dot" class="dot"></span><span id="status">Verificando modelo...</span></div>
+  </header>
+  <main id="messages" aria-live="polite"><div class="intro" id="intro"><strong>Converse com o Jake</strong>Modelo experimental, treinado localmente. As respostas podem não ser corretas ou coerentes.</div></main>
+  <form id="form"><textarea id="prompt" rows="1" maxlength="4096" placeholder="Escreva uma mensagem..." aria-label="Mensagem" required></textarea><button id="send" type="submit">Enviar</button></form>
+  <footer>Protótipo de pesquisa · Sem memória entre mensagens · Execute esta interface apenas localmente</footer>
+</div>
+<script>
+  const form = document.getElementById('form');
+  const promptInput = document.getElementById('prompt');
+  const send = document.getElementById('send');
+  const messages = document.getElementById('messages');
+  function append(text, role) {
+    document.getElementById('intro')?.remove();
+    const item = document.createElement('div');
+    item.className = `msg ${role}`;
+    item.textContent = text;
+    messages.appendChild(item);
+    item.scrollIntoView({behavior:'smooth',block:'end'});
+    return item;
+  }
+  async function readiness() {
+    try {
+      const res = await fetch('/ready');
+      const ready = res.ok;
+      document.getElementById('status').textContent = ready ? 'Modelo carregado' : 'Modelo não treinado';
+      document.getElementById('dot').className = `dot ${ready?'ready':'error'}`;
+    } catch {
+      document.getElementById('status').textContent = 'Servidor indisponível';
+      document.getElementById('dot').className = 'dot error';
+    }
+  }
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const prompt = promptInput.value.trim();
+    if (!prompt) return;
+    send.disabled = true;
+    promptInput.value = '';
+    append(prompt, 'user');
+    const answer = append('Gerando...', 'bot');
+    try {
+      const res = await fetch('/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt,max_new_tokens:80,temperature:0.9,top_k:20})});
+      const data = await res.json();
+      answer.textContent = res.ok ? (data.text || '(Nenhum texto produzido)') : `Erro: ${typeof data.detail === 'string' ? data.detail : 'Requisição inválida'}`;
+    } catch {
+      answer.textContent = 'Não foi possível conectar ao servidor.';
+    } finally {
+      send.disabled = false;
+      promptInput.focus();
+      answer.scrollIntoView({behavior:'smooth',block:'end'});
+    }
+  });
+  promptInput.addEventListener('keydown', (event) => {if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();form.requestSubmit()}});
+  readiness();
+</script>
+</body>
+</html>

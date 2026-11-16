@@ -1,7 +1,4 @@
-torch
-tokenizers
-transformers
-numpy
-pillow
-datasets
-tqdm
+torch>=2.3,<3
+tokenizers>=0.20,<1
+datasets>=2.19,<5
+tqdm>=4.66,<5
