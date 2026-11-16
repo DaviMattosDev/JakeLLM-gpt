@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.pth
+tokenizer/vocab.json
+tokenizer/merges.txt

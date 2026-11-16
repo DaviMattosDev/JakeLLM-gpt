@@ -1,131 +1,96 @@
-# 🐶 JakeLLM — Um LLM Multimodal Caseiro em Homenagem ao Jake
+# 🐶 JakeLLM — Um mini-GPT em português, em homenagem ao Jake
 
-<img src="https://github.com/user-attachments/assets/00b83bbf-0695-490e-8380-86ba16254be3" alt="JakeLLM" height="400px" width="900px"/> 
+JakeLLM é um projeto educacional de modelo de linguagem treinado do zero, dedicado ao pinscher Jake. Implementa geração de texto; multimodalidade e interface web são ideias para o futuro.
 
+## Instalação
 
-
-**JakeLLM** é um projeto de modelo de linguagem inspirado nos grandes LLMs como GPT, DeepSeek e LLaMA, mas construído de forma simples, com recursos limitados e muito coração 💛 — em homenagem ao meu pinscher Jake.
-
----
-
-## ✨ Objetivo
-
-Criar um modelo de linguagem **do zero**, em português, treinado localmente ou no Google Colab, com capacidade de inferência textual e modularidade para crescimento futuro (multimodalidade, geração de imagens, embeddings, etc).
-
----
-
-## 📂 Estrutura do Projeto
-
-```
-JakeLLM/
-├── model/
-│   └── gpt_model.py # Estrutura do modelo Transformer
-│   └── train.py  # Script de treinamento   
-├── tokenizer/
-│   ├── train_tokenizer.py # Treinamento do tokenizer BPE
-│   └── vocab.json, merges.txt
-├── data/raw
-│   └── corpus.txt         # Textos para o tokenizer
-│            
-├── requirements.txt       # Dependências do projeto
-└── README.md              # Este arquivo
-```
-
----
-
-## 🧠 Modelo
-
-O modelo implementa um mini-GPT com:
-- 🔢 **Embedding**: Embeddings de token e posição
-- 🔁 **Camadas**: 4 camadas de Transformer com atenção multi-cabeça
-- 📏 **Parâmetros ajustáveis**: Tamanho do vocabulário, `dim`, número de `heads`, `block_size`
-
----
-
-## 🗣️ Tokenizer
-
-Usamos o `ByteLevelBPETokenizer` da HuggingFace, treinado com um corpus em português contendo:
-- Artigos da Wikipédia
-- Textos públicos
-- Notas de código
-
-Treinamento com:
-```bash
-python tokenizer/train_tokenizer.py
-```
-
----
-
-## 🏋️ Treinamento
-
-Script principal: `train.py`
+Execute os comandos a partir da raiz do repositório, com Python 3.10 ou superior:
 
 ```bash
-python train.py
-```
-
-O modelo treina em pequenos lotes e imprime o `loss` por época.
-
-### Exemplo de resultado:
-
-```
-Epoch 1 - Loss: 2.3912
-Epoch 2 - Loss: 1.8473
-Epoch 3 - Loss: 1.3521
-```
-
----
-
-## 💻 Requisitos
-
-```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Principais bibliotecas:
-- `torch`
-- `transformers`
-- `datasets`
-- `tokenizers`
+Para Windows, ative o ambiente com `.venv\Scripts\activate`. Para uma instalação de PyTorch com CUDA, use a distribuição apropriada ao seu ambiente.
 
----
+## Tokenizer
 
-## 📊 Exemplo de Execução
-
-```python
->>> from model.gpt_model import GPT
->>> model = GPT(...)
->>> prompt = "Qual é a capital do Brasil?"
->>> model.generate(prompt)
-"Brasília é a capital do Brasil."
+```bash
+python -m tokenizer.train_tokenizer
 ```
 
----
+O corpus incluído tem aproximadamente 4,4 KB e serve apenas para testar o fluxo. Para treinamento real, use um corpus maior, limpo, representativo do português desejado e com permissão de uso. Treine o tokenizer somente nos dados de treinamento, sem usar a validação:
 
-## 🖼️ Homenagem ao Jake
+```bash
+python -m tokenizer.train_tokenizer --files dados/treino.txt --vocab-size 8000
+```
 
-O projeto leva o nome **JakeLLM** em homenagem ao meu cachorro Jake, que sempre esteve ao meu lado nos momentos mais difíceis. 🐾
+Isso gera `tokenizer/vocab.json` e `tokenizer/merges.txt`. Preserve esses arquivos junto ao checkpoint: alterar o tokenizer exige treinar um novo modelo.
 
----
+## Treinamento
 
-## 📌 Status do Projeto
+Por padrão, o script usa até 5.000 artigos da Wikipédia em português, obtidos pela biblioteca `datasets` (requer internet):
 
-- ✅ Tokenizer funcional
-- ✅ Modelo Transformer básico
-- ✅ Treinamento local
-- 🔜 Inference em tempo real
-- 🔜 Suporte a geração multimodal
-- 🔜 Interface web com Gradio
+```bash
+python -m model.train
+```
 
----
+Também é possível treinar inteiramente com arquivos locais UTF-8, com um documento por linha não vazia:
 
-## 🚀 Meta
+```bash
+python -m model.train --train-file dados/treino.txt --validation-file dados/validacao.txt
+```
 
-Mostrar que é possível fazer muito mesmo com poucos recursos — basta vontade, estratégia e paixão por IA.  
-Este projeto é a base de algo muito maior: **um LLM brasileiro, pessoal e original**.
+Sem `--validation-file`, 10% dos documentos são reservados para validação antes da divisão em sequências. Cada documento deve conter mais tokens que `--block-size` para produzir uma sequência; documentos curtos e restos incompletos são descartados. O tokenizer e os arquivos de treino/validação devem ser preparados sem sobreposição de dados.
 
----
+Exemplo menor para CPU:
 
-## 📬 Contato
+```bash
+python -m model.train --train-file data/raw/corpus.txt --dim 64 --layers 2 --heads 4 --block-size 64 --epochs 3
+```
 
-Feito com ❤️ por [Davi Mattos](https://github.com/DaviMattosDev)
+Esse exemplo verifica o funcionamento; não produz um assistente útil. Use `python -m model.train --help` para ajustar os parâmetros.
+
+O treinamento usa atenção causal, dropout, AdamW e clipping de gradientes. Cada época imprime loss de treino, loss de validação e perplexidade. O melhor checkpoint de validação é salvo em `model_weights.pth`, incluindo configuração, identificação do tokenizer e época. A seed padrão é 42; isso não garante resultados idênticos em todo hardware. Não há retomada do estado do otimizador.
+
+## Geração
+
+Depois de treinar:
+
+```bash
+python -m inference.cli --temperature 0.8 --top-k 20 --max-new-tokens 50
+```
+
+Digite um texto inicial ou `sair` para encerrar. O modelo gera uma continuação; não foi treinado para seguir instruções ou responder perguntas com precisão. A geração mantém apenas os últimos `block_size` tokens como contexto.
+
+Checkpoints antigos com a arquitetura padrão ainda podem ser carregados, mas precisam ser retreinados: perdas do treinamento anterior, sem máscara causal, não são comparáveis às novas perdas.
+
+## Estrutura
+
+- `model/gpt_model.py`: Transformer causal, com tamanho de contexto configurável.
+- `model/train.py`: treinamento e validação por documento.
+- `tokenizer/train_tokenizer.py`: treinamento do tokenizer byte-level BPE.
+- `inference/cli.py`: geração interativa com amostragem top-k.
+- `tests/test_model.py`: regressões de causalidade, aprendizado, contexto e checkpoints.
+
+## Testes
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+## Como melhorar a qualidade
+
+1. Amplie e limpe o corpus; remova duplicatas e mantenha validação independente.
+2. Treine o tokenizer no corpus representativo e retreine o modelo com atenção causal.
+3. Compare loss de validação e amostras com prompts fixos antes de aumentar parâmetros ou épocas.
+4. Para comportamento de assistente, adicione posteriormente ajuste supervisionado com exemplos de instrução e resposta. O treino atual é de continuação de texto.
+
+O projeto é pequeno e educacional. Treinar do zero com poucos dados não oferece a capacidade de modelos pré-treinados de grande escala.
+
+## Homenagem
+
+O projeto leva o nome JakeLLM em homenagem ao cachorro Jake, companheiro de Davi Mattos. 🐾
+
+Criado por [Davi Mattos](https://github.com/DaviMattosDev). Licença MIT.
