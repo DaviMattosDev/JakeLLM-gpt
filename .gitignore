@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+venv/
+.env
+checkpoints/
+model_weights.pth
+tokenizer/vocab.json
+tokenizer/merges.txt
+*.log

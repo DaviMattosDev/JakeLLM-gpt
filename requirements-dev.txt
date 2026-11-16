@@ -1,0 +1,3 @@
+-r requirements.txt
+-r requirements-api.txt
+pytest>=8,<10

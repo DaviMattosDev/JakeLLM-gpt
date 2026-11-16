@@ -1,50 +1,46 @@
+"""Command-line chat with a locally trained JakeLLM checkpoint."""
 
-import sys
-import os
-import torch
-from tokenizers import ByteLevelBPETokenizer
-import torch.nn.functional as F
+import argparse
 
-# Adiciona o diretório raiz ao sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from inference.generate import generate_text, load_model
 
-from model.gpt_model import GPT
 
-# Carrega o tokenizer
-tokenizer = ByteLevelBPETokenizer.from_file("tokenizer/vocab.json", "tokenizer/merges.txt")
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="JakeLLM local text inference")
+    parser.add_argument("--checkpoint", default="checkpoints/jakellm.pt")
+    parser.add_argument("--tokenizer-dir", default="tokenizer")
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    parser.add_argument("--prompt", help="Generate once and exit (otherwise interactive)")
+    parser.add_argument("--max-new-tokens", type=int, default=50)
+    parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--top-k", type=int, default=20)
+    args = parser.parse_args(argv)
+    model, tokenizer = load_model(args.checkpoint, args.tokenizer_dir, args.device)
 
-# Inicializa o modelo com o vocabulário correto
-vocab_size = tokenizer.get_vocab_size()
-model = GPT(vocab_size=vocab_size)
-model.load_state_dict(torch.load("model_weights.pth", map_location="cpu"))
-model.eval()
+    def respond(prompt):
+        return generate_text(model, tokenizer, prompt, args.max_new_tokens,
+                             args.temperature, args.top_k)
 
-def generate(model, tokenizer, prompt, max_len=50, temperature=1.0, top_k=20):
-    model.eval()
-    tokens = tokenizer.encode(prompt).ids
-    input_tensor = torch.tensor(tokens).unsqueeze(0)
+    if args.prompt is not None:
+        print(respond(args.prompt))
+        return
 
-    for _ in range(max_len):
-        with torch.no_grad():
-            output = model(input_tensor)
-        logits = output[0, -1, :] / temperature
+    print("JakeLLM pronto! Digite 'sair' para encerrar.")
+    while True:
+        try:
+            prompt = input("Você: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        if prompt.lower() in {"sair", "exit", "quit"}:
+            return
+        if not prompt:
+            continue
+        try:
+            print("JakeLLM:", respond(prompt))
+        except ValueError as exc:
+            print(f"Entrada inválida: {exc}")
 
-        # Top-k filtering
-        top_k = min(top_k, logits.size(-1))
-        values, indices = torch.topk(logits, top_k)
-        probs = F.softmax(values, dim=-1)
 
-        next_token = indices[torch.multinomial(probs, num_samples=1)].item()
-        tokens.append(next_token)
-        input_tensor = torch.tensor(tokens).unsqueeze(0)
-
-    return tokenizer.decode(tokens)
-
-# CLI interativo
-print("JakeLLM pronto! Digite 'sair' para encerrar.")
-while True:
-    prompt = input("Você: ")
-    if prompt.lower() in ["sair", "exit", "quit"]:
-        break
-    response = generate(model, tokenizer, prompt)
-    print("JakeLLM:", response)
+if __name__ == "__main__":
+    main()
